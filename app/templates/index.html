@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Face Analysis Demo</title>
+    <style>
+        :root {
+            --primary: #4361ee;
+            --success: #06d6a0;
+            --warning: #ffd166;
+            --danger: #ef476f;
+            --dark: #111;
+            --light: #f8f9fa;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f0f2f5;
+            color: #333;
+            line-height: 1.6;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            overflow: hidden;
+        }
+        header {
+            background: linear-gradient(135deg, var(--primary), #3a0ca3);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            opacity: 0.9;
+            font-size: 1.1rem;
+        }
+        .upload-area {
+            padding: 40px;
+            text-align: center;
+            border-bottom: 1px solid #eee;
+        }
+        .file-input-wrapper {
+            position: relative;
+            display: inline-block;
+            margin: 20px 0;
+        }
+        .file-input-wrapper input[type="file"] {
+            position: absolute;
+            left: 0;
+            top: 0;
+            opacity: 0;
+            width: 280px;
+            height: 50px;
+            cursor: pointer;
+        }
+        .file-input-label {
+            display: inline-block;
+            background: #e9ecef;
+            border: 2px dashed #adb5bd;
+            border-radius: 12px;
+            padding: 15px 30px;
+            cursor: pointer;
+            transition: all 0.3s;
+            width: 280px;
+            font-weight: 500;
+        }
+        .file-input-wrapper input[type="file"]:hover + .file-input-label {
+            background: #dde2e6;
+            border-color: var(--primary);
+        }
+        .file-name {
+            margin-top: 10px;
+            font-size: 0.9rem;
+            color: #6c757d;
+            min-height: 20px;
+        }
+        button {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 14px 32px;
+            font-size: 1.1rem;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: 600;
+            box-shadow: 0 4px 10px rgba(67, 97, 238, 0.3);
+        }
+        button:hover {
+            background: #3a56e0;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(67, 97, 238, 0.4);
+        }
+        button:disabled {
+            background: #adb5bd;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        #loading {
+            display: none;
+            text-align: center;
+            padding: 30px;
+        }
+        .spinner {
+            border: 4px solid rgba(0,0,0,0.1);
+            border-radius: 50%;
+            border-top: 4px solid var(--primary);
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        
+        .result-area {
+            padding: 30px;
+            display: none;
+        }
+        .result-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #eee;
+        }
+        .faces-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 20px;
+            margin: 30px 0;
+        }
+        .face-card {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 15px;
+            text-align: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        .face-img {
+            width: 100%;
+            height: 150px;
+            object-fit: contain;
+            background: #e9ecef;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+        .similarity-matrix {
+            margin-top: 30px;
+        }
+        .matrix-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        .matrix-table th, .matrix-table td {
+            border: 1px solid #dee2e6;
+            padding: 10px;
+            text-align: center;
+        }
+        .matrix-table th {
+            background: #e9ecef;
+        }
+        .similarity-high { background-color: #d4edda; color: #155724; }
+        .similarity-medium { background-color: #fff3cd; color: #856404; }
+        .similarity-low { background-color: #f8d7da; color: #721c24; }
+        .error {
+            color: var(--danger);
+            text-align: center;
+            padding: 20px;
+            background: rgba(239, 71, 111, 0.05);
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        .visualization {
+            text-align: center;
+            margin: 25px 0;
+        }
+        .visualization img {
+            max-width: 100%;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        @media (max-width: 768px) {
+            .container { border-radius: 0; }
+            .upload-area, .result-area { padding: 25px 15px; }
+            .faces-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔍 Face Analysis</h1>
+            <p class="subtitle">Детекция лиц, сравнение и визуализация через insightface</p>
+        </header>
+        
+        <div class="upload-area">
+            <div class="file-input-wrapper">
+                <input type="file" id="fileInput" accept="image/*" required>
+                <label for="fileInput" class="file-input-label">📁 Выберите фото</label>
+            </div>
+            <div class="file-name" id="fileName">Файл не выбран</div>
+            <button id="analyzeBtn" disabled>Анализировать</button>
+        </div>
+        
+        <div id="loading">
+            <div class="spinner"></div>
+            <p>Анализируем изображение... это может занять 10-30 секунд</p>
+        </div>
+        
+        <div class="result-area" id="resultArea">
+            <div class="result-header">
+                <h2 id="resultTitle">Результаты анализа</h2>
+                <button id="newAnalysisBtn">➕ Новый анализ</button>
+            </div>
+            
+            <div id="errorMessage" class="error" style="display:none;"></div>
+            
+            <div class="visualization" id="visualizationContainer" style="display:none;">
+                <h3>Визуализация лиц</h3>
+                <img id="resultImage" src="" alt="Результат анализа">
+            </div>
+            
+            <div id="facesInfo">
+                <h3>Найденные лица: <span id="facesCount">0</span></h3>
+                <div class="faces-grid" id="facesGrid"></div>
+            </div>
+            
+            <div class="similarity-matrix" id="similaritySection" style="display:none;">
+                <h3>Матрица схожести лиц на фото</h3>
+                <p>Значения от 0.0 до 1.0 (чем ближе к 1.0 — тем более похожи лица)</p>
+                <div style="overflow-x:auto;">
+                    <table class="matrix-table" id="similarityTable"></table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const fileInput = document.getElementById('fileInput');
+        const fileName = document.getElementById('fileName');
+        const analyzeBtn = document.getElementById('analyzeBtn');
+        const loading = document.getElementById('loading');
+        const resultArea = document.getElementById('resultArea');
+        const errorMessage = document.getElementById('errorMessage');
+        const newAnalysisBtn = document.getElementById('newAnalysisBtn');
+
+        // Отслеживаем выбор файла
+        fileInput.addEventListener('change', () => {
+            if (fileInput.files.length > 0) {
+                fileName.textContent = fileInput.files[0].name;
+                analyzeBtn.disabled = false;
+            } else {
+                fileName.textContent = 'Файл не выбран';
+                analyzeBtn.disabled = true;
+            }
+        });
+
+        // Анализ фото
+        analyzeBtn.addEventListener('click', async () => {
+            const file = fileInput.files[0];
+            if (!file) return;
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            // Показываем лоадер
+            loading.style.display = 'block';
+            resultArea.style.display = 'none';
+            errorMessage.style.display = 'none';
+
+            try {
+                const response = await fetch('/analyze/', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                // Скрываем лоадер
+                loading.style.display = 'none';
+
+                if (result.error) {
+                    showError(result.error);
+                    return;
+                }
+
+                // Отображаем результаты
+                showResults(result);
+            } catch (error) {
+                loading.style.display = 'none';
+                showError('Ошибка при анализе: ' + error.message);
+                console.error(error);
+            }
+        });
+
+        // Новый анализ
+        newAnalysisBtn.addEventListener('click', () => {
+            resultArea.style.display = 'none';
+            fileInput.value = '';
+            fileName.textContent = 'Файл не выбран';
+            analyzeBtn.disabled = true;
+            window.scrollTo(0, 0);
+        });
+
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.style.display = 'block';
+            resultArea.style.display = 'block';
+        }
+
+        function showResults(result) {
+            // Заголовок
+            document.getElementById('facesCount').textContent = result.faces_count;
+            
+            // Визуализация
+            const visContainer = document.getElementById('visualizationContainer');
+            const resultImage = document.getElementById('resultImage');
+            
+            if (result.visualization) {
+                resultImage.src = `data:image/jpeg;base64,${result.visualization}`;
+                visContainer.style.display = 'block';
+            } else {
+                visContainer.style.display = 'none';
+            }
+            
+            // Лица
+            const facesGrid = document.getElementById('facesGrid');
+            facesGrid.innerHTML = '';
+            
+            if (result.faces_count === 0) {
+                facesGrid.innerHTML = '<p>❌ Лица не обнаружены</p>';
+            } else {
+                result.faces.forEach(face => {
+                    const faceCard = document.createElement('div');
+                    faceCard.className = 'face-card';
+                    faceCard.innerHTML = `
+                        <div class="face-img" style="background: #e9ecef; display: flex; align-items: center; justify-content: center; color: #6c757d;">
+                            Лицо ${face.id}
+                        </div>
+                        <div><strong>ID:</strong> ${face.id}</div>
+                        <div><strong>Уверенность:</strong> ${(face.det_score * 100).toFixed(1)}%</div>
+                        <div><strong>BBox:</strong> [${face.bbox ? face.bbox.map(x => Math.round(x)).join(', ') : 'N/A'}]</div>
+                    `;
+                    facesGrid.appendChild(faceCard);
+                });
+            }
+            
+            // Матрица схожести
+            const similaritySection = document.getElementById('similaritySection');
+            const similarityTable = document.getElementById('similarityTable');
+            similarityTable.innerHTML = '';
+            
+            if (result.similarity_matrix && result.similarity_matrix.length > 0) {
+                similaritySection.style.display = 'block';
+                
+                // Заголовок таблицы
+                const thead = document.createElement('thead');
+                const headerRow = document.createElement('tr');
+                headerRow.innerHTML = '<th>→ / ↓</th>';
+                for (let i = 0; i < result.similarity_matrix.length; i++) {
+                    headerRow.innerHTML += `<th>Лицо ${i + 1}</th>`;
+                }
+                thead.appendChild(headerRow);
+                similarityTable.appendChild(thead);
+                
+                // Строки данных
+                const tbody = document.createElement('tbody');
+                result.similarity_matrix.forEach((row, i) => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `<td><strong>Лицо ${i + 1}</strong></td>`;
+                    row.forEach(value => {
+                        let className = '';
+                        if (value > 0.7) className = 'similarity-high';
+                        else if (value > 0.4) className = 'similarity-medium';
+                        else className = 'similarity-low';
+                        
+                        tr.innerHTML += `<td class="${className}">${value.toFixed(3)}</td>`;
+                    });
+                    tbody.appendChild(tr);
+                });
+                similarityTable.appendChild(tbody);
+            } else {
+                similaritySection.style.display = 'none';
+            }
+            
+            // Показываем результаты
+            resultArea.style.display = 'block';
+            window.scrollTo(0, resultArea.offsetTop);
+        }
+    </script>
+</body>
+</html>
